@@ -41,7 +41,7 @@ def echo(message, quiet):
         click.echo(message)
 
 
-def documents_from_file(es, filename, delimiter, quiet):
+def documents_from_file(es, filename, delimiter, quiet, header=None):
     """
     Return a generator for pulling rows from a given delimited file.
 
@@ -54,7 +54,10 @@ def documents_from_file(es, filename, delimiter, quiet):
     def all_docs():
         with open(filename, 'rb') if filename != '-' else sys.stdin as doc_file:
             # delimited file should include the field names as the first row
-            fieldnames = doc_file.next().strip().split(delimiter)
+            if header:
+                fieldnames = header.split(',')
+            else:
+                fieldnames = doc_file.next().strip().split(delimiter)
             echo('Using the following ' + str(len(fieldnames)) + ' fields:', quiet)
             for fieldname in fieldnames:
                 echo(fieldname, quiet)
@@ -164,9 +167,11 @@ def sanitize_delimiter(delimiter, is_tab):
               help='Delete existing index if it exists')
 @click.option('--quiet', is_flag=True, required=False,
               help='Minimize console output')
+@click.option('--header', required=False,
+              help='Comma-separated list of field names')
 @click.version_option(version=__version__, )
 def cli(index_name, delete_index, mapping_file, doc_type, import_file,
-        delimiter, tab, host, docs_per_chunk, bytes_per_chunk, parallel, quiet):
+        delimiter, tab, host, docs_per_chunk, bytes_per_chunk, parallel, quiet, header):
     """
     Bulk import a delimited file into a target Elasticsearch instance. Common
     delimited files include things like CSV and TSV.
@@ -207,7 +212,7 @@ def cli(index_name, delete_index, mapping_file, doc_type, import_file,
         es.put_mapping(index_name, doc_type, mapping)
 
     target_delimiter = sanitize_delimiter(delimiter, tab)
-    documents = documents_from_file(es, import_file, target_delimiter, quiet)
+    documents = documents_from_file(es, import_file, target_delimiter, quiet, header)
     perform_bulk_index(host, index_name, doc_type, documents, docs_per_chunk, bytes_per_chunk, parallel)
 
 
